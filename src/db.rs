@@ -1,6 +1,7 @@
 pub mod photo;
 pub mod user;
 pub mod post;
+pub mod likes;
 
 use diesel::prelude::*;
 use diesel::pg::PgConnection;

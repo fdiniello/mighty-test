@@ -119,13 +119,6 @@ fn random_string(len: usize) -> String{
 }
 
 #[test]
-fn photo_test(){
-    new_realocate_test();
-    cleanup_test();
-}
-
-
-#[test]
 fn new_realocate_test() {
     let tmp: &str = "./data/tmp";
     let photo: &str = "./data/photo_storage";

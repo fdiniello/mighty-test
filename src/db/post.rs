@@ -1,17 +1,13 @@
-use std::process::id;
-
-use diesel::{IntoSql, QueryDsl, RunQueryDsl, sql_types::Array, update};
+use diesel::{RunQueryDsl};
 use diesel::{PgConnection};
 
 use crate::schema::posts;
-use crate::models::{Post,NewPost};
-use crate::db::{Photo, post};
+use crate::models::{Likes,Post,NewPost};
+use crate::db::{Photo};
 
 impl<'a> NewPost<'a> {
-    
     fn insert(&mut self, db: &PgConnection) -> Option<i64> {
         if let Ok(new_path) = Photo::realocate( &self.file_path ) {
-            
             let corrected = NewPost{
                 user_id: self.user_id,
                 comment: self.comment,
@@ -20,12 +16,18 @@ impl<'a> NewPost<'a> {
             
             let result: Result<i64,_> = diesel::insert_into( posts::table )
                 .values( &corrected )
-                .returning( posts::id)
+                .returning( posts::id )
                 .get_result(db);
-            match result {
-                    Ok(post_id) => return Some(post_id),
+
+            let post_id = match result {
+                    Ok(post_id) => post_id,
                     _ => return None,
+            };
+            match Likes::create_table(post_id,db) {
+                Err(_) => return None,
+                _ => return Some(post_id),
             }
+
         } else{
             return None;
         }
@@ -35,28 +37,34 @@ impl<'a> NewPost<'a> {
 
 enum PostErrors{
     InvalidPost,
-    AlreadyLike
+    AlreadyLiked
 }
 
 impl Post {  
     fn from_id( post_id: i64 , db: &PgConnection) -> Option<Post> {
-        unimplemented!();
+        let query = format!("SELECT * FROM posts WHERE id = \'{}\'",post_id);
+        let a :Result<Vec<Post>,_> = diesel::sql_query(query).load::<Post>(db);
+        match a {
+            Ok(mut vec) => return vec.pop(),
+            _ => return None,
+        }
     }
    
     fn add_like( post_id: i64, user_id: i64, db: &PgConnection) -> Result<(),PostErrors>{
-
-        // let res :Result<Array<i64>,_> = posts::table.select( posts::likes)
-        //     .filter( id.eq(post_id) )
-        //     .get_result(db);
+        if Likes::add_like(post_id,user_id,db) {
+            Ok(())
+        } else {
+            Err(PostErrors::AlreadyLiked)
+        }
+    }
+    fn get_who_likes( post_id: i64, db: &PgConnection) -> Result<Vec<String>,PostErrors>{
         unimplemented!();
     }
-    fn get_likes( post_id: i64, db: &PgConnection) -> Result<Vec<i64>,PostErrors>{
-        unimplemented!();
+
+    fn delete( post_id: i64, db: &PgConnection ) {
+        // posts::table.s
     }
 }
-
-
-
 
 
 #[test]
@@ -74,12 +82,20 @@ fn post_test(){
         file_path: photo.get_path(),
         comment: "Doing bad at the bat cave",
     };
-    let post = new_post.insert(&db);
-    println!("Post created with id: {:?}", post );
-    if let Some(post_id) = post {
-        if let Ok(vec) = Post::get_likes(post_id, &db){
-            println!("Got this much likes from {}: {:?}", post_id, vec);
-        }
-    }
+    let post_id = new_post.insert(&db).unwrap();
+    println!("Post created with id: {}", post_id);
+
+    let post = Post::from_id(post_id, &db).unwrap();
+    println!("And it looks like this: {:?}", post);
+    
+    let like_count = Likes::count(post_id, &db);
+    println!("It has this many likes: {}", like_count.unwrap());
+    
+    Likes::add_like(post_id, 1, &db);
+    println!("It has this many likes: {}", Likes::count(post_id, &db).unwrap() );
+    Likes::add_like(post_id, 3, &db);
+    Likes::add_like(post_id, 3, &db);
+    println!("It has this many likes: {}", Likes::count(post_id, &db).unwrap() );
+
 
 }

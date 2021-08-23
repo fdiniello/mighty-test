@@ -1,3 +1,4 @@
 -- This file should undo anything in `up.sql`
-DROP TABLE Posts;
-DROP TABLE Users;
+DROP TABLE IF EXISTS Posts;
+DROP TABLE IF EXISTS Users CASCADE;
+DROP TABLE IF EXISTS Likes CASCADE;

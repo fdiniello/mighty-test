@@ -1,9 +1,7 @@
+use diesel::RunQueryDsl;
 
-
-use diesel::{IntoSql,RunQueryDsl};
-
-use crate::models::{NewUser};
-use crate::schema::users;
+use crate::models::NewUser;
+use crate::schema;
 
 #[test]
 fn populate_fake_users() {
@@ -25,7 +23,7 @@ fn populate_fake_users() {
         NewUser{user_name: "WonderWoman", password: "lTZ7OxJmYqGdqA==", display_name: "Diana Prince" },
     ];
 
-    diesel::insert_into(users::table)
+    diesel::insert_into(schema::users::table)
         .values(&fake_users)
         .execute(&db).unwrap();
 
