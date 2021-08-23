@@ -1,27 +1,35 @@
 use serde::{Deserialize, Serialize};
-use diesel::{ self, Queryable, Insertable,Identifiable};
+use diesel::{ self, Queryable,QueryableByName, Insertable,Identifiable};
 use super::schema::posts;
 use super::schema::users;
+use super::schema::likes;
 
-#[derive(Debug, Eq, PartialEq, Queryable, Identifiable)]
+#[derive(Debug, Queryable, QueryableByName, Identifiable)]
+#[table_name="posts"]
 pub struct Post {
     pub id: i64,
-    pub time_stamp: String,
+    pub time_stamp: std::time::SystemTime,
     pub user_id: i64,
     pub file_path: String,
     pub comment: String,
-    pub likes: Vec<i64>,
 }
 
 
-#[derive(Debug, Eq, PartialEq, Queryable)]
+#[derive(Debug, Queryable, QueryableByName, Identifiable)]
+#[table_name="users"]
 pub struct User {
     pub id: i64,
-    pub user_id: i64,
     pub password: String,
     pub display_name: String,
     pub can_upload: bool,
 }
+
+#[derive(Debug, Queryable, QueryableByName)]
+#[table_name="likes"]
+pub struct Likes {
+    pub id: i64,
+}
+
 
 #[derive(Debug, Insertable, Deserialize)]
 #[table_name="posts"]
