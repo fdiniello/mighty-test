@@ -1,18 +1,19 @@
 #![allow(unused_imports)]
+#![feature(proc_macro_hygiene, decl_macro)]
+#[macro_use]
+extern crate rocket;
+
 #[macro_use]
 extern crate diesel;
 
+extern crate dotenv;
 
-mod config;
+mod db;
 mod models;
 mod schema;
-mod db;
-
-use config::Config;
+mod service;
 
 fn main() {
-    let config = Config::init();
-    
-    let db = db::init(&config);
-    
+    let s = service::build();
+    s.launch();
 }

@@ -1,154 +1,162 @@
-use std::io::Write;
-use std::thread;
-use std::time::{SystemTime,Duration};
-use rand::{Rng, thread_rng};
 use rand::distributions::Alphanumeric;
-use std::fs::{self, File, metadata};
+use rand::{thread_rng, Rng};
+use std::fs::{self, metadata, File};
+use std::io::Write;
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
+use std::{env, thread};
 
-static mut TEMP_DB :String = String::new();
-static mut PHOTO_DB : String = String::new();
+use crate::db::photo;
 
 #[derive(Debug, Clone)]
-pub struct Photo{
-    path: String,
+pub struct Photo {
+   pub path: String,
 }
 
-impl Photo{
-    pub fn new( data: &[u8]) -> std::io::Result<Photo> {
-        let temp = unsafe {
-            TEMP_DB.as_str()
-        };
+impl Photo {
+    pub fn new(data: &[u8]) -> std::io::Result<Photo> {
+        let temp_dir = dotenv::var("PHOTO_TMP_DIR").unwrap();
+        let photo_path : String  = random_string(15) + ".png";
 
-        let temp_path = temp.to_string() + "/" + random_string(15).as_str() + ".png";
-
-        let mut file = File::create(temp_path.clone())?;
+        let full_path = temp_dir + "/" + photo_path.as_str().clone();
+        let mut file = File::create(full_path )?;
         file.write(&data)?;
         file.flush()?;
 
-        Ok(Photo { path: temp_path })
+        Ok(Photo { path: photo_path })
     }
     pub fn from_str(s: &str) -> Photo {
-        Photo { path: String::from(s) }
+        Photo {
+            path: String::from(s),
+        }
     }
-    pub fn get_path(&self) -> &str{
+    pub fn get_path(&self) -> &str {
         self.path.as_str()
     }
-    pub fn realocate( src: &str ) -> std::io::Result<String>{
-        let db = unsafe {
-            PHOTO_DB.as_str()
-        };
+    pub fn realocate(src: &str) -> std::io::Result<String> {
+        let db_dir = dotenv::var("PHOTO_DB").unwrap();
+        let temp_dir = dotenv::var("PHOTO_TMP_DIR").unwrap();
 
         // Define a new path for the photo to be stored in, under the main photo_db path;
-        let mut new_path = db.to_string() + "/" + random_string(3).as_str() + "/" + random_string(3).as_str();
+        let folder : String = [ random_string(3),
+                                "/".to_owned(),
+                                random_string(3)].concat();
+
         // Create the new dirs in case the don't exist
-        fs::create_dir_all( new_path.clone() )?;
+        fs::create_dir_all([ &db_dir, "/", &folder ].concat() )?;
 
-        new_path += "/";
-        new_path += random_string(15).as_str();
-        new_path += ".png";
+        let new_path : String = [ folder, 
+                                    "/".to_owned(),
+                                    random_string(15),
+                                    ".png".to_owned() ].concat();
 
-        fs::rename(src, &new_path )?;
-
-        
+        let original = temp_dir + "/" + src;
+        let destination = db_dir + "/" + new_path.clone().as_str();
+        fs::rename(original, destination)?;
         Ok(String::from(new_path))
     }
 
-    pub fn rm( path: &str ){
-        fs::remove_file( path );
+    pub fn rm(path: &str) {
+        fs::remove_file(path);
     }
+}
 
-    pub fn init(temp: &str, photo: &str, photo_timeout: i32) -> std::io::Result<()> {
-        unsafe{
-            TEMP_DB = temp.to_string();
-            PHOTO_DB = photo.to_string();
-        }
-        fs::create_dir_all(temp.clone() )?;
-        fs::create_dir_all(photo )?;
-        let temp_dir = temp.to_string();
-        thread::spawn( move ||{
-            Photo::cleanup_loop( temp_dir, photo_timeout);
-        });
+fn random_string(len: usize) -> String {
+    thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(len)
+        .map(char::from)
+        .collect()
+}
 
-        Ok(())
-    }
+pub fn init() -> std::io::Result<()> {
+    let temp = dotenv::var("PHOTO_TMP_DIR").expect("Temporary directory for photos not set");
+    let photo = dotenv::var("PHOTO_DB").expect("Directory for photos not set");
+    let photo_timeout = dotenv::var("PHOTO_TIMEOUT")
+        .unwrap()
+        .parse::<i32>()
+        .expect("Timeout for temp photos not set");
 
-    fn cleanup_loop( temp_dir : String, photo_timeout: i32 ){
-        loop {
-            thread::sleep( Duration::new( (photo_timeout/4) as u64, 0) );
-            println!("Cleaning up photos that didn't complete the proper post creation in the last {} seconds.", photo_timeout/4);
+    fs::create_dir_all(temp.clone())?;
+    fs::create_dir_all(photo)?;
+    let temp_dir = temp.to_string();
+    thread::spawn(move || {
+        cleanup_loop(temp_dir, photo_timeout);
+    });
 
-            let mut rm_list = Vec::new();
-            let current_time = SystemTime::now();
+    Ok(())
+}
+fn get_files(temp_dir: &String, photo_timeout: i32) -> Vec<PathBuf> {
+    let current_time = SystemTime::now();
+    let mut list = Vec::new();
 
-            if let Ok(files) = fs::read_dir( &temp_dir ){
-                    for entry in  files {
-                         match entry {
-                             Ok( valid_entry) => {
-                                if let Ok(metadata) = metadata(valid_entry.path()) {
-                                    if let Ok(creation) = metadata.modified() {
-                                        if let Ok( elpased ) = current_time.duration_since(creation) {
-                                            if elpased.as_secs() > photo_timeout as u64 {
-                                                rm_list.push(valid_entry.path());
-                                            }
-                                        }
-                                    }
+    if let Ok(files) = fs::read_dir(&temp_dir) {
+        for entry in files {
+            match entry {
+                Ok(valid_entry) => {
+                    if let Ok(metadata) = metadata(valid_entry.path()) {
+                        if let Ok(creation) = metadata.modified() {
+                            if let Ok(elpased) = current_time.duration_since(creation) {
+                                if elpased.as_secs() > photo_timeout as u64 {
+                                    list.push(valid_entry.path());
                                 }
-                             },
-                             _ =>{},
-                         }
+                            }
+                        }
                     }
-
-            } 
-            
-            if !rm_list.is_empty() {
-                println!("Found {} files to delete", rm_list.len() );
-                for path in rm_list  {
-                    let _ = fs::remove_file( path );
                 }
+                _ => {}
+            }
+        }
+    }
+    list
+}
+fn cleanup_loop(temp_dir: String, photo_timeout: i32) {
+    loop {
+        thread::sleep(Duration::new((photo_timeout / 4) as u64, 0));
+        let rm_list = get_files(&temp_dir, photo_timeout);
+
+        if !rm_list.is_empty() {
+            println!("Found {} files to delete", rm_list.len());
+            for path in rm_list {
+                let _ = fs::remove_file(path);
             }
         }
     }
 }
 
-fn random_string(len: usize) -> String{
-    thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(len)
-            .map(char::from)
-            .collect()
-}
-
 #[test]
 fn new_realocate_test() {
-    let tmp: &str = "./data/tmp";
-    let photo: &str = "./data/photo_storage";
-    Photo::init(tmp, photo, 300).unwrap();
-    
+    init().unwrap();
+
     let mut data = [0; 12];
     data.clone_from_slice(b"hola mundo!\n");
-    
+
     let a = Photo::new(&data).unwrap();
-    println!( "Created photo with path: {:?}", a );
-    
-    let a = Photo::realocate( a.get_path() ).unwrap();
-    println!( "Relocated photo with path: {:?}", a );
+    println!("Created photo with path: {:?}", a);
+
+    let b = Photo::realocate(a.get_path()).unwrap();
+    println!("Relocated photo with path: {:?}", b);
+    assert_ne!(a.path, b);
 }
 
 #[test]
-fn cleanup_test(){
-    let tmp: &str = "./data/tmp";
-    let photo: &str = "./data/photo_storage";
-    Photo::init(tmp, photo, 5).unwrap();
-
+fn cleanup_test() {
+    init().unwrap();
 
     for _ in 1..10 {
-        thread::sleep( Duration::new( 2, 0) );
-        
+        thread::sleep(Duration::new(2, 0));
+
         let data = [0; 12];
         let a = Photo::new(&data).unwrap();
-        println!( "Created photo with path: {:?}", a );
+        println!("Created photo with path: {:?}", a);
     }
-    thread::sleep( Duration::new(10,0 ));
+    let photo_timeout = dotenv::var("PHOTO_TIMEOUT")
+        .unwrap()
+        .parse::<u64>()
+        .expect("Timeout for temp photos not set");
 
+    thread::sleep(Duration::new(photo_timeout / 4, 0));
 
+    let files = get_files(&dotenv::var("PHOTO_TMP_DIR").unwrap(), 0);
+    assert_eq!(files.len(), 0)
 }

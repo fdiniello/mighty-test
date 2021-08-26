@@ -1,30 +1,7 @@
 table! {
-    likes (id) {
-        id -> Int8,
-    }
-}
-
-table! {
-    post2_likes (id) {
-        id -> Int8,
-    }
-}
-
-table! {
-    post3_likes (id) {
-        id -> Int8,
-    }
-}
-
-table! {
-    post4_likes (id) {
-        id -> Int8,
-    }
-}
-
-table! {
-    post5_likes (id) {
-        id -> Int8,
+    likes (post_id, user_id) {
+        post_id -> Int8,
+        user_id -> Int8,
     }
 }
 
@@ -48,12 +25,6 @@ table! {
     }
 }
 
-allow_tables_to_appear_in_same_query!(
-    likes,
-    post2_likes,
-    post3_likes,
-    post4_likes,
-    post5_likes,
-    posts,
-    users,
-);
+joinable!(likes -> posts (post_id));
+
+allow_tables_to_appear_in_same_query!(likes, posts, users,);
