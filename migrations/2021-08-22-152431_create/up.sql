@@ -20,9 +20,10 @@ CREATE TABLE Posts (
             REFERENCES users(id)
 );
 
-CREATE TABLE Likes (
-    id BIGINT UNIQUE PRIMARY KEY NOT NULL,
-    CONSTRAINT fk_user
-        FOREIGN KEY(id) 
-            REFERENCES users(id)
+CREATE TABLE Likes(
+        post_id BIGINT NOT NULL, 
+        user_id BIGINT NOT NULL, 
+        PRIMARY KEY (post_id, user_id),
+        CONSTRAINT fk_post FOREIGN KEY (post_id) REFERENCES Posts(id), 
+        CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES Users(id)
 );
