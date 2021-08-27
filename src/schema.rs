@@ -27,4 +27,8 @@ table! {
 
 joinable!(likes -> posts (post_id));
 
-allow_tables_to_appear_in_same_query!(likes, posts, users,);
+allow_tables_to_appear_in_same_query!(
+    likes,
+    posts,
+    users,
+);

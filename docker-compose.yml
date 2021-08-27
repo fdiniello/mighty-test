@@ -1,0 +1,14 @@
+version: "3"
+
+services:
+  database:
+    image: "postgres:latest"
+    ports:
+      - 5432:5432
+
+    environment:
+      POSTGRES_PASSWORD: CAXw6zWg8inQ8A
+      POSTGRES_DB: mighty_test
+
+    volumes:
+      - ./data/postgresql/:/var/lib/postgresql/data/
