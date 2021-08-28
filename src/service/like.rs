@@ -1,5 +1,7 @@
 use rocket::http::Status;
 use rocket::Response;
+use rocket_contrib::json::Json;
+use rocket::response::{content, status};
 
 use crate::db::DbConn;
 use crate::models::Like;
@@ -14,19 +16,19 @@ pub fn like_post<'r>(post_id: i64, user_id: i64, db: DbConn) -> rocket::Response
 }
 
 #[route(GET, path = "/by/<user_id>")]
-pub fn by_user(user_id: i64, db: DbConn) -> String {
+pub fn by_user(user_id: i64, db: DbConn) -> Json<Vec<Like>> {
     let like = Like {
         user_id,
         post_id: 0,
     };
-    format!("{:?}", like.get_all(&db))
+    Json(like.get_all(&db))
 }
 
 #[route(GET, path = "/for/<post_id>")]
-pub fn for_post(post_id: i64, db: DbConn) -> String {
+pub fn for_post(post_id: i64, db: DbConn) -> Json<Vec<Like>> {
     let like = Like {
         post_id,
         user_id: 0,
     };
-    format!("{:?}", like.get_all(&db))
+    Json(like.get_all(&db))
 }
