@@ -40,9 +40,42 @@ Get a post by its uniquie post id. The response follows the JSON format:
 Allows to navigate the post with a pagination system. Being `nth` the requested page when using a `size` number of elements per page.
 The response consists in a JSON format with an Array of element of individual posts following the same format as before.
 
+    JSON:[
+        {
+            "id": 123,
+            ....
+            "likes": 157
+        },
+        {
+            "id": 124,
+            ....
+            "likes": 36
+        }
+    ]
+
+When there are no more post left to send it returns an empty Array `[]`
+
+
 ### `POST /post/new` json(newPost) 
-    => POST /like/post/<post_id>/by/<user_id> 
-    => GET /like/for/<post_id> 
-    => GET /like/by/<user_id> 
-    => POST /photo/upload/by/<user_id> 
-    => GET /photo/<file..> 
+
+To submit a new post you have to POST the following JSON body to the endopoint:
+
+    {
+        "user_id": 2,
+        "file_path": "Z7PFCXguwJ5SZNB.png",
+        "comment": "Comment for the photo" 
+    }
+
+Where `user_id` and `comment` are the creator of said post and is the comment for the photo, respectevly. The `file_path` is the name of a recently uploaded photo that was correctely submited to the endpoint `/photo/upload/by/<user_id>`. 
+
+### `POST /like/post/<post_id>/by/<user_id> `
+
+To like a given post, you have to POST to this method without any body. The fields in the URL `post_id` and `user_id` refer to the given post and the user that wants to like it. If the user has already liked that given post the returned result will be an Error.
+
+### `POST /photo/upload/by/<user_id>` raw(Photo)
+
+To upload a new photo you have to POST it into this endpoint with the photo as body. The system checks whether the user given by its `user_id` is able to post or not. Once the file is uploaded and stored in a temporary folder the name of the file will be provided as a result, this result is for later use during post creation with endpoint `/post/new`. Files that remain in the temporary folder more than a pre-configured time will be deleted for not completing the proper upload process.
+
+### `GET /photo/<file..>`
+
+Once a photo has been properly uploaded it's stored in it's final path, the same that's provided in any post GET method. This method is used to retrieve the photograph from the configured storage folder with the `<file..>` path.
